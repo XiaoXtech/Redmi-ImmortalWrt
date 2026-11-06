@@ -25,7 +25,10 @@ git clone -b openwrt-24.10-6.6 --single-branch https://github.com/padavanonly/im
 ```bash
 git clone -b openwrt-21.02 --single-branch https://github.com/hanwckf/immortalwrt-mt798x
 ```
-
+- chasey-dev-[chasey-dev/immortalwrt-mt798x-rebase](https://github.com/chasey-dev/immortalwrt-mt798x-rebase).
+```bash
+git clone -b 25.12 --single-branch https://github.com/chasey-dev/immortalwrt-mt798x-rebase
+```
 ## Redmi AX6000 开源驱动固件 源码来源
 - OpenWrt官方-[openwrt/openwrt](https://github.com/openwrt/openwrt).
 ```bash
@@ -42,6 +45,7 @@ git clone https://github.com/x-wrt/x-wrt
 
 ## Redmi AX6000 不死uboot
 - hanwckf-[hanwckf/bl-mt798x](https://github.com/hanwckf/bl-mt798x).
+- Yuzhii0718-[Yuzhii0718/bl-mt798x-dhcpd](https://github.com/Yuzhii0718/bl-mt798x-dhcpd).
 
 ## Redmi AX6000 不死ubootmod
 - HZFrodo-[HZFrodo/uboot-mediatek: add support for Xiaomi Redmi Router AX6000](https://github.com/openwrt/openwrt/commit/1613e3340b829ea9aa6da954bf0ff98214b71751).
