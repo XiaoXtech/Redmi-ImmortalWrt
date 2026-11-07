@@ -1,0 +1,198 @@
+name: Redmi-AX6000-MTKuboot_chasey-dev
+on:
+  repository_dispatch:
+  workflow_dispatch:
+
+env:
+  REPO_URL: https://github.com/chasey-dev/immortalwrt-mt798x-rebase/
+  REPO_BRANCH: 25.12
+  FEEDS_CONF: feeds.conf.default
+  CONFIG_FILE: immortalwrtARM/ax6000/ax6000-MTKuboot-25.12.config
+  DIY_P1_SH: immortalwrtARM/ax6000/diy1.sh
+  DIY_P2_SH: immortalwrtARM/ax6000/diy2.sh
+  UPLOAD_BIN_DIR: true
+  UPLOAD_FIRMWARE: true
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 210
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1  # 浅克隆,仅拉取最新提交,大幅减少仓库下载时间
+
+      - name: Initialization environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -e
+          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          # 【修复1】docker image prune 添加 timeout,防止 Docker daemon 无响应时永久挂起
+          timeout 60 sudo docker image prune --all --force || echo "docker prune timed out or failed, continuing..."
+          
+          # 替换 apt 镜像源为清华镜像,解决 apt-get update 超时/卡住问题
+          sudo sed -i 's|http://archive.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
+          sudo sed -i 's|http://security.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
+          
+          # 配置 apt 超时和重试策略,防止无限等待
+          echo 'Acquire::http::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/99timeout
+          echo 'Acquire::Retries "3";' | sudo tee -a /etc/apt/apt.conf.d/99timeout
+          echo 'Acquire::https::Timeout "30";' | sudo tee -a /etc/apt/apt.conf.d/99timeout
+          
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
+          
+          # 使用环境变量设置时区,避免 timedatectl 可能触发的 systemd 等待
+          sudo timedatectl set-timezone "$TZ" || export TZ="$TZ"
+          sudo mkdir -p /workdir
+          sudo chown $USER:$GROUPS /workdir
+
+      - name: Create swap file
+        run: |
+          # 【修复2】创建 4GB swap 交换文件,防止 OpenWrt 编译时 OOM 导致 Runner 进程被 OS 强杀
+          sudo fallocate -l 4G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "Swap info:"
+          swapon --show
+          free -h
+
+      - name: Clone source code
+        working-directory: /workdir
+        run: |
+          df -hT $PWD
+          # 【修复3】添加 --depth 1 浅克隆,与 checkout 保持一致,避免全量克隆拖慢进度
+          git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
+          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+      - name: Shallow submodule update
+        working-directory: /workdir/openwrt
+        run: |
+          # 限制子模块克隆深度,避免子模块拖慢构建
+          git submodule update --init --recursive --depth=1
+
+      - name: Cache openwrt
+        uses: actions/cache@v4
+        with:
+          path: |
+            /workdir/openwrt/dl
+            /workdir/openwrt/staging_dir
+          key: ${{ runner.os }}-openwrt-${{ hashFiles('**/feeds.conf.default', '**/*.config', '**/diy*.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-openwrt-
+
+      - name: Load custom feeds
+        run: |
+          [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
+          chmod +x $DIY_P1_SH
+          cd openwrt
+          $GITHUB_WORKSPACE/$DIY_P1_SH
+
+      - name: Update feeds
+        run: cd openwrt && ./scripts/feeds update -a
+
+      - name: Install feeds
+        run: cd openwrt && ./scripts/feeds install -a
+
+      - name: Load custom configuration
+        run: |
+          [ -e files ] && mv files openwrt/files
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+          chmod +x $DIY_P2_SH
+          cd openwrt
+          $GITHUB_WORKSPACE/$DIY_P2_SH
+
+      - name: Download package
+        id: package
+        run: |
+          cd openwrt
+          make defconfig
+          make download -j$(nproc) V=s || make download -j1 V=s
+          find dl -size -1024c -exec ls -l {} \;
+          find dl -size -1024c -exec rm -f {} \;
+
+      - name: Compile the firmware
+        id: compile
+        run: |
+          cd openwrt
+          echo -e "$(nproc) thread compile"
+          # 【修复4】将 make -j$(nproc) 改为 -j2,降低内存峰值防止 OOM
+          # GitHub Runner ubuntu-22.04 有 4 vCPU 但仅 7GB RAM,多线程编译极易触发 OOM Kill
+          if make -j2; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          elif make -j1 V=s; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          # 【修复5】修复 DEVICE_NAME 提取：使用 head -n1 确保只取第一行,避免多行导致 $GITHUB_ENV 格式错误
+          DEVICE_NAME_VAL=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | head -n1 | sed -r 's/.*DEVICE_(.*)=y/\1/' | tr -cd '[:alnum:]._-' || echo "unknown")
+          echo "DEVICE_NAME=_${DEVICE_NAME_VAL}" >> $GITHUB_ENV
+          echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
+      - name: Free disk space after compile
+        if: always()
+        run: |
+          # 【修复6】编译后清理临时文件,释放磁盘空间,防止上传阶段因磁盘满导致 Runner 异常
+          echo "=== Disk usage before cleanup ==="
+          df -hT
+          cd openwrt
+          # 清理下载缓存和编译中间产物
+          rm -rf dl/*.bin dl/*.tar.* dl/*.zip dl/*.gz dl/*.xz dl/*.patch* 2>/dev/null || true
+          rm -rf staging_dir/toolchain-* staging_dir/target-* 2>/dev/null || true
+          rm -rf .ccache 2>/dev/null || true
+          make clean >/dev/null 2>&1 || true
+          echo "=== Disk usage after cleanup ==="
+          df -hT
+          # 打印编译产物大小
+          du -sh bin/ 2>/dev/null || echo "No bin directory"
+
+      - name: Check space usage
+        if: (!cancelled())
+        run: df -hT
+
+      - name: Upload bin directory
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
+        with:
+          name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: openwrt/bin
+          retention-days: 7
+
+      - name: Organize files
+        id: organize
+        if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+        run: |
+          targets=(openwrt/bin/targets/*/*)
+          [ ${#targets[@]} -eq 0 ] && { echo "No target directory found"; exit 1; }
+          cd "${targets[0]}"
+          rm -rf packages
+          # 【修复7】对 FIRMWARE 路径做安全处理,避免特殊字符破坏 $GITHUB_ENV
+          FIRMWARE_SAFE=$(echo "$PWD" | tr -cd '[:alnum:]._/-')
+          echo "FIRMWARE=${FIRMWARE_SAFE}" >> $GITHUB_ENV
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      - name: Upload firmware directory
+        uses: actions/upload-artifact@v4
+        if: steps.organize.outputs.status == 'success' && !cancelled()
+        with:
+          name: Wrt_chasey-dev${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}
+          retention-days: 56
+
+      - name: Final disk report
+        if: always()
+        run: |
+          echo "=== Final disk report ==="
+          df -hT
+          echo "=== Swap status ==="
+          swapon --show || echo "No swap"
+          free -h
