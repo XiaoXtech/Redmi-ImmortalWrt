@@ -53,23 +53,6 @@ jobs:
           sudo mkdir -p /workdir
           sudo chown $USER:$GROUPS /workdir
 
-      - name: Create swap file
-        continue-on-error: true
-        run: |
-          # 【修复2】创建 4GB swap 交换文件,防止 OpenWrt 编译时 OOM 导致 Runner 进程被 OS 强杀
-          if sudo fallocate -l 4G /swapfile 2>/dev/null; then
-            echo "fallocate succeeded"
-          else
-            echo "fallocate failed, using dd as fallback..."
-            sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
-          fi
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          echo "Swap info:"
-          swapon --show
-          free -h
-
       - name: Clone source code
         working-directory: /workdir
         run: |
@@ -192,12 +175,3 @@ jobs:
           df -hT
           echo "=== bin/ size after cleanup ==="
           du -sh bin/ 2>/dev/null || echo "No bin directory"
-
-      - name: Final disk report
-        if: always()
-        run: |
-          echo "=== Final disk report ==="
-          df -hT
-          echo "=== Swap status ==="
-          swapon --show || echo "No swap"
-          free -h
