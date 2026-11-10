@@ -20,3 +20,5 @@
 # mv /tmp/clash feeds/luci/applications/luci-app-openclash/root/etc/openclash/core/clash >/dev/null 2>&1
 # rm -rf /tmp/clash.tar.gz >/dev/null 2>&1
 ##---------------------------------------------------------
+
+sed -i 's/192.168.1.1/192.168.56.1/g' package/base-files/files/bin/config_generate
