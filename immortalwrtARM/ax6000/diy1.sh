@@ -18,3 +18,5 @@
 #echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >>feeds.conf.default
 #echo 'src-git messense https://github.com/messense/aliyundrive-webdav' >>feeds.conf.default
 git clone https://github.com/sirpdboy/netspeedtest package/netspeedtest
+git clone https://github.com/brauliobo/mwan4 package/mwan4
+git clone https://github.com/brauliobo/luci-app-mwan4 package/luci-app-mwan4
