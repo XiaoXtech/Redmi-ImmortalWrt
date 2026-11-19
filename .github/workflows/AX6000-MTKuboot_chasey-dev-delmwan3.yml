@@ -133,25 +133,18 @@ jobs:
         id: package
         run: |
           cd openwrt
-          # 第一次 defconfig：让系统解析出全部依赖（mwan3 此时会被偷偷拉进来）
           make defconfig
-
-          # 【关键】强制删除所有 mwan3 相关配置行（含 mwan3 / luci-app-mwan3 / luci-i18n-mwan3-zh-cn）
+          
           sed -i '/mwan3/d' .config
-
-          # 第二次 defconfig：在 mwan3 已删除的前提下重新计算依赖
           make defconfig
-
-          # 再删一次（防止 defconfig 又把 mwan3 拉回），并验证
           sed -i '/mwan3/d' .config
           if grep -qi 'mwan3' .config; then
-            echo "::warning::mwan3 仍被某插件依赖拉回，请查日志中 'Installing mwan3 as dependency for xxx' 定位内鬼插件"
+            echo "::warning::mwan3 仍被依赖拉回，请搜日志 'Installing mwan3 as dependency for xxx' 定位插件"
           else
             echo "OK: mwan3 已从配置中彻底移除"
           fi
 
-          # 整机构建：保留全局 内部工具，不能只下目标包
-          make 内部工具 -j$(nproc) V=s || make 内部工具 -j1 V=s
+          make download -j$(nproc) V=s || make download -j1 V=s
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
 
