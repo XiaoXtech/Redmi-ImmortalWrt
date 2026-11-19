@@ -10,6 +10,7 @@ env:
   CONFIG_FILE: immortalwrtARM/ax6000/ax6000-MTKuboot-25.12.config
   DIY_P1_SH: immortalwrtARM/ax6000/diy1.sh
   DIY_P2_SH: immortalwrtARM/ax6000/diy2.sh
+  DIY_P3_SH: immortalwrtARM/ax6000/diy3.sh
   UPLOAD_BIN_DIR: true
   UPLOAD_FIRMWARE: true
   TZ: Asia/Shanghai
@@ -86,6 +87,11 @@ jobs:
 
       - name: Update feeds
         run: cd openwrt && ./scripts/feeds update -a
+
+      - name: Replace old source code
+        run: |
+          chmod +x $DIY_P3_SH
+          $GITHUB_WORKSPACE/$DIY_P3_SH
 
       - name: Install feeds
         run: cd openwrt && ./scripts/feeds install -a
