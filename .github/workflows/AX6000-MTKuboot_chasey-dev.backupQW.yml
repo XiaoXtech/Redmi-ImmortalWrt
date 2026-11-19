@@ -1,4 +1,4 @@
-name: Redmi-AX6000-MTKuboot_chasey-dev
+name: backup-Redmi-AX6000-MTKuboot_chasey-dev
 on:
   repository_dispatch:
   workflow_dispatch:
@@ -112,11 +112,6 @@ jobs:
           make download -j$(nproc) V=s || make download -j1 V=s
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
 
       - name: Compile the firmware
         id: compile
