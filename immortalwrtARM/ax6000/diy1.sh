@@ -18,7 +18,9 @@
 #echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >>feeds.conf.default
 #echo 'src-git messense https://github.com/messense/aliyundrive-webdav' >>feeds.conf.default
 
+sed -i 's/^#\(.*smartdns\)/\1/' feeds.conf.default
 echo 'src-git smartdns https://github.com/pymumu/smartdns' >>feeds.conf.default
+sed -i 's/^#\(.*luci-app-smartdns\)/\1/' feeds.conf.default
 echo 'src-git luci-app-smartdns https://github.com/pymumu/luci-app-smartdns' >>feeds.conf.default
 
 git clone https://github.com/sirpdboy/netspeedtest package/netspeedtest
