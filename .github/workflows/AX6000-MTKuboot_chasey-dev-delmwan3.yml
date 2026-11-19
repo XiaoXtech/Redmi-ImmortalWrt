@@ -1,4 +1,4 @@
-name: Redmi-AX6000-MTKuboot_chasey-dev
+name: Redmi-AX6000-MTKuboot_chasey-dev-mwan3to4
 on:
   repository_dispatch:
   workflow_dispatch:
@@ -96,7 +96,7 @@ jobs:
       - name: Update feeds
         run: cd openwrt && ./scripts/feeds update -a
 
-      - name: Replace old source code
+      - name: Replace source code by custom resource
         run: |
           chmod +x $DIY_P3_SH
           $GITHUB_WORKSPACE/$DIY_P3_SH
