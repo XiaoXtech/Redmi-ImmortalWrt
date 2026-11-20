@@ -7,7 +7,7 @@ env:
   REPO_URL: https://github.com/chasey-dev/immortalwrt-mt798x-rebase/
   REPO_BRANCH: 25.12
   FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: immortalwrtARM/ax6000/ax6000-MTKuboot-25.12.debug.config
+  CONFIG_FILE: immortalwrtARM/ax6000/ax6000-MTKuboot-25.12.config
   DIY_P1_SH: immortalwrtARM/ax6000/diy1.sh
   DIY_P2_SH: immortalwrtARM/ax6000/diy2.sh
   DIY_P3_SH: immortalwrtARM/ax6000/diy3.sh
@@ -127,18 +127,6 @@ jobs:
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
 
-      - name: Diagnose missing dependency
-        run: |
-          cd openwrt
-          set +e
-          echo "=== before defconfig ==="
-          grep -E 'CONFIG_PACKAGE_(luci|luci-base|mwan4|luci-app-mwan4)=' .config || echo "none present yet"
-          make defconfig
-          echo "=== after defconfig ==="
-          grep -E 'CONFIG_PACKAGE_(luci|luci-base|mwan4|luci-app-mwan4)=' .config
-          echo "=== result ==="
-          grep 'CONFIG_PACKAGE_luci-app-mwan4=y' .config && echo "SURVIVED" || echo "DROPPED"
-
       # ===== 诊断2(临时): 确认符号是否被 defconfig 丢弃 =====
       - name: Diagnose config symbol survival
         run: |
@@ -155,6 +143,18 @@ jobs:
           echo "=== related symbols after defconfig ==="
           grep -E 'CONFIG_PACKAGE_(luci|mwan4|luci-app-mwan4)=' .config || true
       # ===== 诊断2 结束 =====
+
+      - name: Diagnose missing dependency
+        run: |
+          cd openwrt
+          set +e
+          echo "=== before defconfig ==="
+          grep -E 'CONFIG_PACKAGE_(luci|luci-base|mwan4|luci-app-mwan4)=' .config || echo "none present yet"
+          make defconfig
+          echo "=== after defconfig ==="
+          grep -E 'CONFIG_PACKAGE_(luci|luci-base|mwan4|luci-app-mwan4)=' .config
+          echo "=== result ==="
+          grep 'CONFIG_PACKAGE_luci-app-mwan4=y' .config && echo "SURVIVED" || echo "DROPPED"
 
       # 【关键修复】Node.js 必须在 make download 之前就绪
       - name: Setup Node.js 22
