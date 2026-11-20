@@ -127,6 +127,22 @@ jobs:
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
 
+      - name: Diagnose hidden dependency
+        run: |
+          cd openwrt
+          set +e
+          echo "=== full Makefile ==="
+          cat package/luci-app-mwan4/Makefile
+          echo ""
+          echo "=== Kconfig resolved deps ==="
+          grep -A 30 'config PACKAGE_luci-app-mwan4' tmp/.config-package.in || echo "NOT FOUND in .config-package.in (run make defconfig first)"
+          echo ""
+          echo "=== after defconfig ==="
+          make defconfig 2>&1 | tail -n 5
+          echo ""
+          echo "=== Kconfig resolved deps (post defconfig) ==="
+          grep -A 30 'config PACKAGE_luci-app-mwan4' tmp/.config-package.in
+
       - name: Diagnose config symbol survival
         run: |
           cd openwrt
