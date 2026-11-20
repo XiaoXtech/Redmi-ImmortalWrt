@@ -112,29 +112,18 @@ jobs:
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
 
-      # ===== 诊断(临时): 查清包定义为何未注册进 Kconfig =====
-      - name: Diagnose why symbol missing
+      - name: Verify fix registered
         run: |
           cd openwrt
           set +e
-          echo "=== run defconfig first ==="
+          echo "=== Makefile include line now ==="
+          grep -n 'luci.mk' package/luci-app-mwan4/Makefile
           make defconfig 2>&1 | tail -n 3
-          echo "=== symbol in any kconfig file? ==="
-          grep -rl 'PACKAGE_luci-app-mwan4' tmp/.config*.in 2>/dev/null || echo "NOT IN ANY KCONFIG"
-          echo "=== compare working mwan4 ==="
-          grep -rl 'PACKAGE_mwan4' tmp/.config*.in 2>/dev/null || echo "mwan4 also missing"
-          echo "=== Makefile tail ==="
-          tail -n 30 package/luci-app-mwan4/Makefile
-          echo "=== include / BuildPackage lines ==="
-          grep -nE 'include|luci.mk|BuildPackage' package/luci-app-mwan4/Makefile || echo "NO include/BuildPackage line"
-          echo "=== does luci.mk exist? ==="
-          ls -l feeds/luci/luci.mk 2>&1 || echo "feeds/luci/luci.mk NOT FOUND"
-          echo "=== which luci feeds installed? ==="
-          ls -d feeds/luci* package/feeds/luci* 2>&1 || echo "NO luci feed dir"
-          echo "=== force single-package scan ==="
-          make -n package/luci-app-mwan4/compile 2>&1 | head -n 25 || echo "NOT RECOGNIZED"
+          echo "=== symbol in kconfig? ==="
+          grep -rl 'PACKAGE_luci-app-mwan4' tmp/.config*.in 2>/dev/null || echo "STILL NOT IN KCONFIG"
+          echo "=== symbol in .config? ==="
+          grep -E 'CONFIG_PACKAGE_luci-app-mwan4(=| is not set)' .config || echo "NOT IN .config"
           exit 0
-      # ===== 诊断 结束 =====
 
       # 【关键修复】Node.js 必须在 make download 之前就绪
       - name: Setup Node.js 22
