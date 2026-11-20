@@ -1,4 +1,4 @@
-name: Redmi-AX6000-MTKuboot_chasey-dev-rust
+name: Redmi-AX6000-MTKuboot_chasey-dev-Rust
 on:
   repository_dispatch:
   workflow_dispatch:
