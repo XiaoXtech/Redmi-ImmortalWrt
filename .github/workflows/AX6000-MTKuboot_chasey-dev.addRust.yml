@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1  # 浅克隆,仅拉取最新提交,大幅减少仓库下载时间
 
@@ -81,7 +81,7 @@ jobs:
           git submodule update --init --recursive --depth=1
 
       - name: Cache openwrt
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             /workdir/openwrt/dl
@@ -118,7 +118,7 @@ jobs:
 
       # 【关键修复】Node.js 必须在 make download 之前就绪
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -167,7 +167,7 @@ jobs:
         run: df -hT
 
       - name: Upload bin directory
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
         with:
           name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
@@ -188,7 +188,7 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: Upload firmware directory
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: steps.organize.outputs.status == 'success' && !cancelled()
         with:
           name: Wrt_chasey-dev${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
