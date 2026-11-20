@@ -127,34 +127,17 @@ jobs:
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
 
-      # ===== 诊断2(临时): 确认符号是否被 defconfig 丢弃 =====
       - name: Diagnose config symbol survival
         run: |
           cd openwrt
           set +e
-          echo "=== incoming .config ==="
-          grep 'luci-app-mwan4' .config || echo "MISSING in incoming .config"
-          echo "=== related symbols before defconfig ==="
-          grep -E 'CONFIG_PACKAGE_(luci|mwan4|luci-app-mwan4)=' .config || true
-          echo "=== run defconfig ==="
+          echo "=== incoming ==="
+          grep -E 'CONFIG_PACKAGE_(luci-base|luci|luci-app-mwan4|mwan4)(=| is not set)' .config || echo "none present yet"
           make defconfig
           echo "=== after defconfig ==="
-          grep 'luci-app-mwan4' .config || echo "DROPPED BY defconfig (dependency unsatisfied)"
-          echo "=== related symbols after defconfig ==="
-          grep -E 'CONFIG_PACKAGE_(luci|mwan4|luci-app-mwan4)=' .config || true
-      # ===== 诊断2 结束 =====
-
-      - name: Diagnose missing dependency
-        run: |
-          cd openwrt
-          set +e
-          echo "=== before defconfig ==="
-          grep -E 'CONFIG_PACKAGE_(luci|luci-base|mwan4|luci-app-mwan4)=' .config || echo "none present yet"
-          make defconfig
-          echo "=== after defconfig ==="
-          grep -E 'CONFIG_PACKAGE_(luci|luci-base|mwan4|luci-app-mwan4)=' .config
+          grep -E 'CONFIG_PACKAGE_(luci-base|luci|luci-app-mwan4|mwan4)(=| is not set)' .config
           echo "=== result ==="
-          grep 'CONFIG_PACKAGE_luci-app-mwan4=y' .config && echo "SURVIVED" || echo "DROPPED"
+          grep -q 'CONFIG_PACKAGE_luci-app-mwan4=y' .config && echo "SURVIVED" || echo "DROPPED"
 
       # 【关键修复】Node.js 必须在 make download 之前就绪
       - name: Setup Node.js 22
