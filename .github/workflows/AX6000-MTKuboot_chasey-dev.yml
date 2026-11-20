@@ -96,7 +96,7 @@ jobs:
       - name: Update feeds
         run: cd openwrt && ./scripts/feeds update -a
 
-      - name: Replace old source code
+      - name: Replace to custom source
         run: |
           chmod +x $DIY_P3_SH
           $GITHUB_WORKSPACE/$DIY_P3_SH
