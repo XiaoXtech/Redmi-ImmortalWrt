@@ -7,7 +7,7 @@ env:
   REPO_URL: https://github.com/chasey-dev/immortalwrt-mt798x-rebase/
   REPO_BRANCH: 25.12
   FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: immortalwrtARM/ax6000/ax6000-MTKuboot-25.12.config
+  CONFIG_FILE: immortalwrtARM/ax6000/ax6000-MTKuboot-25.12.debug.config
   DIY_P1_SH: immortalwrtARM/ax6000/diy1.sh
   DIY_P2_SH: immortalwrtARM/ax6000/diy2.sh
   DIY_P3_SH: immortalwrtARM/ax6000/diy3.sh
@@ -100,16 +100,12 @@ jobs:
           set +e
           echo "=== package dir listing ==="
           ls -la package/ | grep -i mwan4 || echo "NO mwan4 dirs in package/"
-          echo "=== find duplicates (同名冲突检查) ==="
+          echo "=== find duplicates ==="
           find . -maxdepth 4 -type d -name 'luci-app-mwan4' 2>/dev/null || true
           echo "=== Makefile DEPENDS ==="
-          grep -iE 'PKG_NAME|^DEPENDS|DEPENDS:=' package/luci-app-mwan4/Makefile 2>&1 \
-
-            || echo "NO MAKEFILE or no DEPENDS field"
+          grep -iE 'PKG_NAME|DEPENDS' package/luci-app-mwan4/Makefile || echo "NO MAKEFILE or no DEPENDS field"
           echo "=== dry-run compile target ==="
-          make -n package/luci-app-mwan4/compile 2>&1 | head -n 40 \
-
-            || echo "TARGET NOT RECOGNIZED"
+          make -n package/luci-app-mwan4/compile 2>&1 | head -n 40 || echo "TARGET NOT RECOGNIZED"
       # ===== 诊断1 结束 =====
 
       - name: Update feeds
@@ -130,6 +126,18 @@ jobs:
           chmod +x $DIY_P2_SH
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
+
+      - name: Diagnose missing dependency
+        run: |
+          cd openwrt
+          set +e
+          echo "=== before defconfig ==="
+          grep -E 'CONFIG_PACKAGE_(luci|luci-base|mwan4|luci-app-mwan4)=' .config || echo "none present yet"
+          make defconfig
+          echo "=== after defconfig ==="
+          grep -E 'CONFIG_PACKAGE_(luci|luci-base|mwan4|luci-app-mwan4)=' .config
+          echo "=== result ==="
+          grep 'CONFIG_PACKAGE_luci-app-mwan4=y' .config && echo "SURVIVED" || echo "DROPPED"
 
       # ===== 诊断2(临时): 确认符号是否被 defconfig 丢弃 =====
       - name: Diagnose config symbol survival
