@@ -93,21 +93,6 @@ jobs:
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P1_SH
 
-      # ===== 诊断1(临时): 确认 luci-app-mwan4 是否被构建系统识别 =====
-      - name: Diagnose mwan4 package detection
-        run: |
-          cd openwrt
-          set +e
-          echo "=== package dir listing ==="
-          ls -la package/ | grep -i mwan4 || echo "NO mwan4 dirs in package/"
-          echo "=== find duplicates ==="
-          find . -maxdepth 4 -type d -name 'luci-app-mwan4' 2>/dev/null || true
-          echo "=== Makefile DEPENDS ==="
-          grep -iE 'PKG_NAME|DEPENDS' package/luci-app-mwan4/Makefile || echo "NO MAKEFILE or no DEPENDS field"
-          echo "=== dry-run compile target ==="
-          make -n package/luci-app-mwan4/compile 2>&1 | head -n 40 || echo "TARGET NOT RECOGNIZED"
-      # ===== 诊断1 结束 =====
-
       - name: Update feeds
         run: cd openwrt && ./scripts/feeds update -a
 
@@ -127,33 +112,29 @@ jobs:
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
 
-      - name: Diagnose hidden dependency
+      # ===== 诊断(临时): 查清包定义为何未注册进 Kconfig =====
+      - name: Diagnose why symbol missing
         run: |
           cd openwrt
           set +e
-          echo "=== full Makefile ==="
-          cat package/luci-app-mwan4/Makefile
-          echo ""
-          echo "=== Kconfig resolved deps ==="
-          grep -A 30 'config PACKAGE_luci-app-mwan4' tmp/.config-package.in || echo "NOT FOUND in .config-package.in (run make defconfig first)"
-          echo ""
-          echo "=== after defconfig ==="
-          make defconfig 2>&1 | tail -n 5
-          echo ""
-          echo "=== Kconfig resolved deps (post defconfig) ==="
-          grep -A 30 'config PACKAGE_luci-app-mwan4' tmp/.config-package.in
-
-      - name: Diagnose config symbol survival
-        run: |
-          cd openwrt
-          set +e
-          echo "=== incoming ==="
-          grep -E 'CONFIG_PACKAGE_(luci-base|luci|luci-app-mwan4|mwan4)(=| is not set)' .config || echo "none present yet"
-          make defconfig
-          echo "=== after defconfig ==="
-          grep -E 'CONFIG_PACKAGE_(luci-base|luci|luci-app-mwan4|mwan4)(=| is not set)' .config
-          echo "=== result ==="
-          grep -q 'CONFIG_PACKAGE_luci-app-mwan4=y' .config && echo "SURVIVED" || echo "DROPPED"
+          echo "=== run defconfig first ==="
+          make defconfig 2>&1 | tail -n 3
+          echo "=== symbol in any kconfig file? ==="
+          grep -rl 'PACKAGE_luci-app-mwan4' tmp/.config*.in 2>/dev/null || echo "NOT IN ANY KCONFIG"
+          echo "=== compare working mwan4 ==="
+          grep -rl 'PACKAGE_mwan4' tmp/.config*.in 2>/dev/null || echo "mwan4 also missing"
+          echo "=== Makefile tail ==="
+          tail -n 30 package/luci-app-mwan4/Makefile
+          echo "=== include / BuildPackage lines ==="
+          grep -nE 'include|luci.mk|BuildPackage' package/luci-app-mwan4/Makefile || echo "NO include/BuildPackage line"
+          echo "=== does luci.mk exist? ==="
+          ls -l feeds/luci/luci.mk 2>&1 || echo "feeds/luci/luci.mk NOT FOUND"
+          echo "=== which luci feeds installed? ==="
+          ls -d feeds/luci* package/feeds/luci* 2>&1 || echo "NO luci feed dir"
+          echo "=== force single-package scan ==="
+          make -n package/luci-app-mwan4/compile 2>&1 | head -n 25 || echo "NOT RECOGNIZED"
+          exit 0
+      # ===== 诊断 结束 =====
 
       # 【关键修复】Node.js 必须在 make download 之前就绪
       - name: Setup Node.js 22
