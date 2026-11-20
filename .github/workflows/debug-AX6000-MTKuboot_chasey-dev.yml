@@ -1,4 +1,4 @@
-name: Redmi-AX6000-MTKuboot_chasey-dev-Rust
+name: debug-AX6000-MTKuboot_chasey-dev
 on:
   repository_dispatch:
   workflow_dispatch:
@@ -7,7 +7,7 @@ env:
   REPO_URL: https://github.com/chasey-dev/immortalwrt-mt798x-rebase/
   REPO_BRANCH: 25.12
   FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: immortalwrtARM/ax6000/ax6000-MTKuboot-25.12.WebUI.config
+  CONFIG_FILE: immortalwrtARM/ax6000/ax6000-MTKuboot-25.12.config
   DIY_P1_SH: immortalwrtARM/ax6000/diy1.sh
   DIY_P2_SH: immortalwrtARM/ax6000/diy2.sh
   DIY_P3_SH: immortalwrtARM/ax6000/diy3.sh
@@ -56,11 +56,7 @@ jobs:
           sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
           sudo -E apt-get -qq autoremove --purge
           sudo -E apt-get -qq clean
-
-          # 此点取决于你所用 SmartDNS OpenWrt Makefile 是否自动拉取 host-rust;部分新版 Makefile 已内置处理,但旧版或自定义版可能未包含
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          source "$HOME/.cargo/env"
-
+          
           # 使用环境变量设置时区,避免 timedatectl 可能触发的 systemd 等待
           sudo timedatectl set-timezone "$TZ" || export TZ="$TZ"
           sudo mkdir -p /workdir
@@ -97,10 +93,29 @@ jobs:
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P1_SH
 
+      # ===== 诊断1(临时): 确认 luci-app-mwan4 是否被构建系统识别 =====
+      - name: Diagnose mwan4 package detection
+        run: |
+          cd openwrt
+          set +e
+          echo "=== package dir listing ==="
+          ls -la package/ | grep -i mwan4 || echo "NO mwan4 dirs in package/"
+          echo "=== find duplicates (同名冲突检查) ==="
+          find . -maxdepth 4 -type d -name 'luci-app-mwan4' 2>/dev/null || true
+          echo "=== Makefile DEPENDS ==="
+          grep -iE 'PKG_NAME|^DEPENDS|DEPENDS:=' package/luci-app-mwan4/Makefile 2>&1 \
+
+            || echo "NO MAKEFILE or no DEPENDS field"
+          echo "=== dry-run compile target ==="
+          make -n package/luci-app-mwan4/compile 2>&1 | head -n 40 \
+
+            || echo "TARGET NOT RECOGNIZED"
+      # ===== 诊断1 结束 =====
+
       - name: Update feeds
         run: cd openwrt && ./scripts/feeds update -a
 
-      - name: Replace old source code
+      - name: Replace to custom source
         run: |
           chmod +x $DIY_P3_SH
           $GITHUB_WORKSPACE/$DIY_P3_SH
@@ -115,6 +130,23 @@ jobs:
           chmod +x $DIY_P2_SH
           cd openwrt
           $GITHUB_WORKSPACE/$DIY_P2_SH
+
+      # ===== 诊断2(临时): 确认符号是否被 defconfig 丢弃 =====
+      - name: Diagnose config symbol survival
+        run: |
+          cd openwrt
+          set +e
+          echo "=== incoming .config ==="
+          grep 'luci-app-mwan4' .config || echo "MISSING in incoming .config"
+          echo "=== related symbols before defconfig ==="
+          grep -E 'CONFIG_PACKAGE_(luci|mwan4|luci-app-mwan4)=' .config || true
+          echo "=== run defconfig ==="
+          make defconfig
+          echo "=== after defconfig ==="
+          grep 'luci-app-mwan4' .config || echo "DROPPED BY defconfig (dependency unsatisfied)"
+          echo "=== related symbols after defconfig ==="
+          grep -E 'CONFIG_PACKAGE_(luci|mwan4|luci-app-mwan4)=' .config || true
+      # ===== 诊断2 结束 =====
 
       # 【关键修复】Node.js 必须在 make download 之前就绪
       - name: Setup Node.js 22
@@ -141,7 +173,7 @@ jobs:
           make download -j$(nproc) V=s || make download -j1 V=s
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
-
+  
       - name: Compile the firmware
         id: compile
         run: |
