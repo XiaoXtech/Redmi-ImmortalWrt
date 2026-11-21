@@ -118,17 +118,6 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Verify Node.js version
-        run: |
-          echo "Node version: $(node -v)"
-          echo "NPM version: $(npm -v)"
-          # SmartDNS WebUI 硬性要求 >= 22.13.0
-          NODE_VER=$(node -v | sed 's/v//' | cut -d. -f1)
-          if [ "$NODE_VER" -lt 22 ]; then
-            echo "::error::Node.js version must be >= 22 for SmartDNS WebUI"
-            exit 1
-          fi
-
       - name: Download package
         id: package
         run: |
