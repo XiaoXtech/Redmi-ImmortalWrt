@@ -18,10 +18,10 @@
 #echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >>feeds.conf.default
 #echo 'src-git messense https://github.com/messense/aliyundrive-webdav' >>feeds.conf.default
 
-git clone https://github.com/sirpdboy/netspeedtest package/netspeedtest
+#git clone https://github.com/sirpdboy/netspeedtest package/netspeedtest
+
 git clone https://github.com/brauliobo/mwan4 package/mwan4
 
 # QW：以后 clone 任何 luci-app-* 进 package/ 根,都要顺手把它的 include ../../luci.mk sed 成 include $(TOPDIR)/feeds/luci/luci.mk
-
 git clone https://github.com/brauliobo/luci-app-mwan4 package/luci-app-mwan4
 sed -i 's#include \.\./\.\./luci\.mk#include $(TOPDIR)/feeds/luci/luci.mk#' package/luci-app-mwan4/Makefile
